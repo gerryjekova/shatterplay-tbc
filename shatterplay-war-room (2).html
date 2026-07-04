@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shatterplay // War Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void: #0a0813;
+    --void-2: #120e1f;
+    --panel: #17132a;
+    --panel-2: #1d1833;
+    --line: #2c2447;
+    --line-soft: #221c3a;
+    --text: #e7e2f5;
+    --text-dim: #9188b3;
+    --text-faint: #635a82;
+    --shadow-purple: #7c5cff;
+    --shadow-glow: #4b2fb8;
+    --win: #4fd68c;
+    --loss: #ef5a6f;
+    --warn: #e8b64f;
+
+    --c-war:#c79c6e; --c-rog:#fff569; --c-hun:#abd473; --c-mag:#69ccf0;
+    --c-lck:#9482c9; --c-pri:#f0ede8; --c-shm:#2e93ff; --c-pal:#f58cba; --c-dru:#ff7d0a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(124,92,255,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 400px at 90% 100%, rgba(46,147,255,0.08), transparent 60%),
+      var(--void);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:18px 14px 60px;}
+
+  header{ text-align:center; padding:10px 0 18px; border-bottom:1px solid var(--line-soft); margin-bottom:16px;}
+  .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--shadow-purple); text-transform:uppercase;}
+  h1{ font-family:'Cinzel',serif; font-weight:700; font-size:26px; margin:4px 0 2px; letter-spacing:.02em;
+      background:linear-gradient(180deg,#fff,#c9bdfa); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .subtitle{color:var(--text-dim); font-size:13px;}
+
+  nav.tabs{ display:flex; gap:6px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:16px; position:sticky; top:10px; z-index:20; backdrop-filter:blur(6px);}
+  nav.tabs button{
+    flex:1; background:transparent; border:none; color:var(--text-dim); font-family:'Inter'; font-weight:600; font-size:12px;
+    padding:10px 2px; border-radius:9px; cursor:pointer; transition:.15s;
+  }
+  nav.tabs button.active{ background:linear-gradient(180deg,#2a2150,#1c1638); color:#fff; box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(124,92,255,.25);}
+
+  .view{display:none;}
+  .view.active{display:block; animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+  /* ---- shared card ---- */
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px;}
+  .card h3{margin:0 0 10px; font-size:15px; font-family:'Cinzel',serif; color:#fff; letter-spacing:.02em;}
+
+  /* ---- search ---- */
+  input[type=text], textarea, select{
+    width:100%; background:var(--void-2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:10px 12px; font-family:'Inter'; font-size:14px; outline:none;
+  }
+  input[type=text]:focus, textarea:focus{border-color:var(--shadow-purple);}
+  textarea{resize:vertical; min-height:60px;}
+
+  /* ---- matchup list ---- */
+  .mrow{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px; cursor:pointer;
+    transition:.12s;
+  }
+  .mrow:active{transform:scale(.98);}
+  .mrow:hover{border-color:var(--shadow-purple);}
+  .mrow .pills{display:flex; gap:5px; flex-wrap:wrap;}
+  .stat-block{text-align:right; flex-shrink:0;}
+  .wl{font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600;}
+  .wr{font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em;}
+
+  .pill{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600; letter-spacing:.03em;
+    padding:3px 7px; border-radius:6px; color:#0a0813; white-space:nowrap;
+  }
+  .pill.spec{opacity:.92;}
+
+  /* ---- detail view ---- */
+  .backbtn{ background:none; border:none; color:var(--text-dim); font-size:13px; cursor:pointer; padding:6px 0 12px; display:flex; align-items:center; gap:4px;}
+  .backbtn:hover{color:var(--text);}
+
+  .priority-ladder{display:flex; flex-direction:column; gap:8px; margin:14px 0;}
+  .rung{
+    display:flex; align-items:center; gap:12px; background:var(--void-2); border:1px solid var(--line);
+    border-radius:10px; padding:10px 14px; position:relative; overflow:hidden;
+  }
+  .rung .num{
+    font-family:'Cinzel',serif; font-weight:700; font-size:15px; width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; background:var(--shadow-glow); color:#fff; flex-shrink:0;
+  }
+  .rung .glow{position:absolute; inset:0; opacity:.08; pointer-events:none;}
+  .confidence{font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; margin-left:auto;}
+
+  .gamelog{border-top:1px dashed var(--line-soft); margin-top:14px; padding-top:12px;}
+  .gentry{display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:13px;}
+  .gentry:last-child{border-bottom:none;}
+  .gtag{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; padding:2px 6px; border-radius:5px; height:fit-content;}
+  .gtag.W{background:rgba(79,214,140,.15); color:var(--win);}
+  .gtag.L{background:rgba(239,90,111,.15); color:var(--loss);}
+  .gnote{color:var(--text-dim); line-height:1.4;}
+  .gorder{color:var(--text-faint); font-size:11.5px; font-family:'JetBrains Mono',monospace; margin-top:2px;}
+
+  .notes-list{margin:0; padding-left:18px; color:var(--text-dim); font-size:13.5px; line-height:1.65;}
+  .notes-list li{margin-bottom:6px;}
+  .notes-list b{color:var(--text);}
+
+  /* ---- log form ---- */
+  .classgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:6px;}
+  .cbtn{
+    border:1.5px solid var(--line); background:var(--void-2); color:var(--text-dim); border-radius:10px;
+    padding:10px 4px; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px; cursor:pointer; text-align:center; transition:.12s;
+  }
+  .cbtn.selected{ color:#0a0813; border-color:transparent; }
+  .spec-row{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 12px; padding-left:2px;}
+  .spec-chip{
+    border:1px solid var(--line); background:var(--void-2); color:var(--text-dim); border-radius:20px;
+    padding:5px 12px; font-size:12px; cursor:pointer;
+  }
+  .spec-chip.on{background:var(--shadow-purple); border-color:var(--shadow-purple); color:#fff;}
+
+  .order-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .order-chip{
+    border:1.5px solid var(--line); border-radius:10px; padding:10px 14px; cursor:pointer; font-family:'JetBrains Mono',monospace;
+    font-weight:700; font-size:13px; color:var(--text); background:var(--void-2); position:relative; min-width:80px; text-align:center;
+  }
+  .order-chip .seq{ position:absolute; top:-8px; left:-8px; width:20px; height:20px; border-radius:50%; background:var(--shadow-purple);
+    color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; font-family:'Inter';}
+
+  .outcome-row{display:flex; gap:8px; margin-bottom:12px;}
+  .outbtn{flex:1; padding:12px; border-radius:10px; border:1.5px solid var(--line); background:var(--void-2); color:var(--text-dim); font-weight:700; cursor:pointer;}
+  .outbtn.W.on{background:rgba(79,214,140,.18); border-color:var(--win); color:var(--win);}
+  .outbtn.L.on{background:rgba(239,90,111,.18); border-color:var(--loss); color:var(--loss);}
+
+  .pace-row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+  .pacebtn{border:1px solid var(--line); background:var(--void-2); color:var(--text-dim); border-radius:20px; padding:6px 12px; font-size:12px; cursor:pointer;}
+  .pacebtn.on{background:var(--panel-2); border-color:var(--shadow-purple); color:#fff;}
+
+  label.field-label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); margin-bottom:7px; font-weight:600;}
+
+  .savebtn{
+    width:100%; padding:14px; border:none; border-radius:11px; background:linear-gradient(180deg,#8a6bff,#6944e6);
+    color:#fff; font-weight:700; font-size:14.5px; cursor:pointer; box-shadow:0 6px 18px rgba(124,92,255,.3);
+  }
+  .savebtn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--panel-2); border:1px solid var(--shadow-purple);
+    color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none; transition:.25s; z-index:100;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,-6px);}
+
+  .accordion{border:1px solid var(--line); border-radius:12px; margin-bottom:8px; overflow:hidden; background:var(--panel);}
+  .acc-head{display:flex; align-items:center; justify-content:space-between; padding:13px 16px; cursor:pointer;}
+  .acc-head .name{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;}
+  .acc-body{max-height:0; overflow:hidden; transition:max-height .2s ease;}
+  .acc-body-inner{padding:0 16px 14px;}
+  .accordion.open .acc-body{max-height:600px;}
+  .chevron{transition:.2s; color:var(--text-faint);}
+  .accordion.open .chevron{transform:rotate(90deg);}
+
+  .empty{text-align:center; color:var(--text-faint); padding:30px 10px; font-size:13.5px;}
+  .small-note{font-size:12px; color:var(--text-faint); text-align:center; margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Spineshatter · EU</div>
+    <h1>Shatterplay War Room</h1>
+    <div class="subtitle">Hyperautism — Draenei Shadow Priest · Frost Mage / SPriest / Resto Shaman</div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="matchups" class="active">Matchups</button>
+    <button data-tab="plan">Plan</button>
+    <button data-tab="log">Log</button>
+    <button data-tab="coach">Coach</button>
+    <button data-tab="guide">Guide</button>
+  </nav>
+
+  <!-- ===================== MATCHUPS TAB ===================== -->
+  <div class="view active" id="view-matchups">
+    <div id="list-mode">
+      <div class="card" id="dashboard"></div>
+      <input type="text" id="search" placeholder="Search by class... e.g. rogue, warrior" style="margin-bottom:12px;">
+      <div id="matchup-list"></div>
+    </div>
+    <div id="detail-mode" style="display:none;"></div>
+  </div>
+
+  <!-- ===================== LOG GAME TAB ===================== -->
+  <div class="view" id="view-log">
+    <div class="card">
+      <h3>Enemy Comp — pick 3</h3>
+      <div class="classgrid" id="class-grid"></div>
+      <div id="spec-picker"></div>
+    </div>
+
+    <div class="card" id="order-card" style="display:none;">
+      <h3>Kill Order</h3>
+      <div class="small-note" style="margin:0 0 10px;">Tap in the order they died (1st, 2nd, 3rd). Tap again to reset.</div>
+      <div class="order-row" id="order-row"></div>
+    </div>
+
+    <div class="card">
+      <h3>Outcome</h3>
+      <div class="outcome-row">
+        <button class="outbtn W" data-out="W">WIN</button>
+        <button class="outbtn L" data-out="L">LOSS</button>
+      </div>
+      <h3 style="margin-top:2px;">Pace</h3>
+      <div class="pace-row" id="pace-row"></div>
+      <label class="field-label">Notes / CC targets / reads</label>
+      <textarea id="notes" placeholder="e.g. baited iceblock, swapped to rogue, priest finished on cd..."></textarea>
+    </div>
+
+    <button class="savebtn" id="save-btn" disabled>Log this game</button>
+  </div>
+
+  <!-- ===================== QUICK PLAN TAB ===================== -->
+  <div class="view" id="view-plan">
+    <div class="card">
+      <h3>Who are you queued into?</h3>
+      <div class="small-note" style="margin:0 0 10px;">Pick their 3 classes. If you've logged this exact comp, you get your real data. If not, you get a generated read from general principles + known meta patterns.</div>
+      <div class="classgrid" id="plan-class-grid"></div>
+      <div id="plan-spec-picker"></div>
+      <button class="savebtn" id="plan-generate-btn" style="margin-top:6px;" disabled>Generate plan</button>
+    </div>
+    <div id="plan-output"></div>
+  </div>
+
+  <!-- ===================== COACHING TAB ===================== -->
+  <div class="view" id="view-coach">
+    <div class="card">
+      <h3>Core Shatterplay Principles</h3>
+      <ul class="notes-list" id="principles-list"></ul>
+    </div>
+    <div class="card" style="padding:10px 10px 4px;">
+      <h3 style="padding:6px 6px 0;">Class Quick-Kill Reference</h3>
+      <div id="class-tips"></div>
+    </div>
+  </div>
+
+  <!-- ===================== GUIDE TAB ===================== -->
+  <div class="view" id="view-guide">
+    <div class="card">
+      <h3>0 → Competent: Shatterplay Building Blocks</h3>
+      <div class="small-note" style="margin:0 0 4px;">Frost Mage / Shadow Priest / Resto Shaman, from your Draenei SPriest seat.</div>
+    </div>
+
+    <div class="card">
+      <h3>The 3 Phases of Every Game</h3>
+      <div class="priority-ladder">
+        <div class="rung"><div class="glow" style="background:var(--c-mag)"></div><div class="num" style="background:var(--c-mag); color:#0a0813;">1</div>
+          <div><b>Open</b> — first 10-15s. Mage waits for water elemental + shatter setup, you apply MF/VT and hold your CC for the read, shaman watches for the opposing kill target. Nobody dies here on a clean game — this is where most of your logged losses actually happened (caught off guard, split up, own shaman trained).</div></div>
+        <div class="rung"><div class="glow" style="background:var(--c-shm)"></div><div class="num" style="background:var(--c-shm); color:#0a0813;">2</div>
+          <div><b>Mid-game</b> — pressure and baiting. Force out a defensive CD (Ice Block, Cloak, PS, Divine Shield) with a soft commit, then flip to whoever it exposes. This is where your kill-target flexibility (documented across almost every matchup) actually pays off.</div></div>
+        <div class="rung"><div class="glow" style="background:var(--c-pri)"></div><div class="num" style="background:var(--c-pri); color:#0a0813;">3</div>
+          <div><b>Close</b> — CDs are down, someone is exposed. Full commit, chain your CC on the healer/off-target so they can't peel, finish in order.</div></div>
+      </div>
+    </div>
+
+    <div class="accordion">
+      <div class="acc-head"><span class="name">Your job as Shadowpriest</span><span class="chevron">›</span></div>
+      <div class="acc-body"><div class="acc-body-inner"><ul class="notes-list">
+        <li>You have <b>no personal defensive cooldown</b> beyond Fade/Dispersion (later tier) and your trinket — this is exactly why you're a frequent kill target and why positioning beats reacting.</li>
+        <li>Your core toolkit: Mind Flay for pressure + silence-on-cast, Vampiric Touch/Shadow Word: Pain for sustained pressure that doesn't require you to stand and cast, Psychic Scream for a full-team fear (positioning-dependent, can save yourself or peel for your shaman), Dispel Magic for offensive dispel value (see class notes — Blessing of Sacrifice, Ice Barrier-type shields, HoTs).</li>
+        <li>Mind Flay's channel makes you vulnerable — don't commit to a full channel blind, especially if their kill target (you) hasn't been confirmed safe.</li>
+        <li>You are also your team's mobile CC — Psychic Scream and Silence are both position/timing tools, not just damage tools. Use them to buy your shaman time, not only to secure kills.</li>
+      </ul></div></div>
+    </div>
+
+    <div class="accordion">
+      <div class="acc-head"><span class="name">Talent & stat priorities (general TBC convention)</span><span class="chevron">›</span></div>
+      <div class="acc-body"><div class="acc-body-inner"><ul class="notes-list">
+        <li>Shadow Priest PvP builds conventionally prioritize Shadow Focus, Improved Shadow Word: Pain, Silence, and Psychic Horror/Vampiric Embrace as available — exact point allocation shifts by patch, so cross-check current talent calculators before finalizing.</li>
+        <li>Frost Mage runs deep Frost for the shatter combo and CC uptime (Improved Frost Nova, Ice Block/Cold Snap access, Shatter itself).</li>
+        <li>Resto Shaman runs deep Restoration for Nature's Swiftness, Earth Shield efficiency, and Tidal Focus/mana tools — this spec is more cast-reliant than other TBC healers, which is exactly why protecting your shaman early matters so much.</li>
+        <li>Resilience is your #1 PvP stat once you have your core damage/healing talents — it reduces incoming damage <i>and</i> CC duration on you.</li>
+      </ul></div></div>
+    </div>
+
+    <div class="accordion">
+      <div class="acc-head"><span class="name">Addon setup</span><span class="chevron">›</span></div>
+      <div class="acc-body"><div class="acc-body-inner"><ul class="notes-list">
+        <li><b>Gladius</b> (or Gladdy) — arena unit frames with CC/diminishing-return tracking. Non-negotiable for arena.</li>
+        <li><b>OmniCC / OmniBar</b> — cooldown tracking for enemy trinkets, defensives, and CDs (Ice Block, Bestial Wrath, Death Wish, etc.) — referenced constantly in the how-to-kill breakdowns you already have.</li>
+        <li>A DR (diminishing returns) tracker — critical for knowing when your CC chain is actually going to land vs. resist/half-duration.</li>
+      </ul></div></div>
+    </div>
+
+    <div class="accordion">
+      <div class="acc-head"><span class="name">Beginner mistakes (from your own loss data)</span><span class="chevron">›</span></div>
+      <div class="acc-body"><div class="acc-body-inner"><ul class="notes-list">
+        <li><b>Getting caught off guard in the opener.</b> Multiple logged losses trace directly to this — slow down and confirm positioning before committing, especially against hunters and rogues.</li>
+        <li><b>Own shaman getting isolated and killed first.</b> The mirror-match loss is the clearest example. If your shaman is under pressure in the first 10s, that takes priority over your own damage.</li>
+        <li><b>Committing into a defensive CD instead of baiting it first.</b> Several losses came from dumping cooldowns into Ice Block/PS rather than forcing it out with a soft engage first.</li>
+        <li><b>Not updating the kill target when the read changes.</b> Your wins consistently show target flips (mage iceblocks → go rogue instead); losses often show tunneling the original plan too long.</li>
+      </ul></div></div>
+    </div>
+
+    <div class="accordion">
+      <div class="acc-head"><span class="name">How to keep improving from here</span><span class="chevron">›</span></div>
+      <div class="acc-body"><div class="acc-body-inner"><ul class="notes-list">
+        <li>Log every ranked game you play in the <b>Log</b> tab, win or lose — your own games are more valuable data than any VOD, since they reflect your actual execution.</li>
+        <li>Go through your 5 queued videos when you get a chance — prioritize any matchup you've only logged once, or haven't seen at all yet, over ones you already have 3+ games on.</li>
+        <li>After every loss, ask one question before queuing again: was it a <i>read</i> problem (wrong target, wrong timing) or an <i>execution</i> problem (missed a kick, mispositioned)? Note it in that game's log entry — patterns will show up in the matchup notes over time.</li>
+        <li>Once you're comfortable with your top 4-5 most common matchups, start deliberately reviewing the ones you're weakest against (lowest win rate in the Matchups tab) rather than the ones you already win.</li>
+      </ul></div></div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================ DATA MODEL ============================ */
+const CLASS_META = {
+  WAR:{name:'Warrior', color:'var(--c-war)', specs:null},
+  ROG:{name:'Rogue', color:'var(--c-rog)', specs:null},
+  HUN:{name:'Hunter', color:'var(--c-hun)', specs:['BM','MM','SV']},
+  MAG:{name:'Mage', color:'var(--c-mag)', specs:['Frost','Fire','Arcane']},
+  LCK:{name:'Warlock', color:'var(--c-lck)', specs:null},
+  PRI:{name:'Priest', color:'var(--c-pri)', specs:['Disc','Holy','Shadow']},
+  SHM:{name:'Shaman', color:'var(--c-shm)', specs:['Resto','Enh','Ele']},
+  PAL:{name:'Paladin', color:'var(--c-pal)', specs:['Holy','Ret']},
+  DRU:{name:'Druid', color:'var(--c-dru)', specs:['Resto','Feral']},
+};
+
+function classLabel(c){ // c = {k:'PRI', spec:'Disc'}
+  const meta = CLASS_META[c.k];
+  return c.spec ? `${c.spec} ${meta.name}` : meta.name;
+}
+function pillHTML(c, small){
+  const meta = CLASS_META[c.k];
+  return `<span class="pill ${small?'spec':''}" style="background:${meta.color}">${c.spec?c.spec.toUpperCase()+' ':''}${c.k}</span>`;
+}
+function compKey(classes){
+  return classes.slice().sort((a,b)=> (a.k+a.spec).localeCompare(b.k+b.spec)).map(c=>c.k+':'+(c.spec||'')).join('|');
+}
+
+// ---- seed data parsed from Danny's VOD notes ----
+const cc = (k,spec)=>({k,spec:spec||null});
+const DEFAULT_MATCHUPS = [
+  { id:'rmp', classes:[cc('ROG'),cc('MAG','Frost'),cc('PRI','Disc')],
+    notes:['Mage is default primary target — has zero defensive CDs beyond Ice Block/trinket.',
+           'If mage plays defensive and Ice Blocks early, flip and hard-commit the rogue instead — several wins came from this exact read.',
+           'Bait the rogue\'s Cloak of Shadows before fully committing your DoTs/CC.',
+           'Priest almost always finishes last — dispel/CC him down after the other two are dead, don\'t waste early CDs on him.'],
+    games:[
+      {out:'L', order:[cc('MAG'),cc('ROG')], pace:'attrition', note:'Made the priest unable to play the game, but couldn\'t close it.'},
+      {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Priest interrupted + dispelled, died last.'},
+      {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'burst', note:'Hard push mage, hard commit, rogue 2nd, finish priest.'},
+      {out:'L', order:[cc('MAG'),cc('ROG')], pace:'standard', note:'Bad RNG, close loss.'},
+      {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Hard mage, swapped to bait rogue\'s Cloak, then killed rogue, finished priest.'},
+      {out:'L', order:[], pace:'attrition', note:'Survive + hard mage the usual way, bad RNG loss.'},
+      {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Straightforward mage > rogue > finish.'},
+      {out:'W', order:[cc('ROG'),cc('MAG'),cc('PRI')], pace:'burst', note:'Mage iceblocked, rogue popped CDs and opened — rogue died 1st, mage 2nd, priest hard CC\'d, finish.'},
+      {out:'W', order:[cc('ROG'),cc('MAG'),cc('PRI')], pace:'burst', note:'Mage iceblocked again, opened on rogue with CDs — rogue died 1st (good RNG), mage 2nd, priest hard CC\'d.'},
+    ]},
+  { id:'2rog-rdru', classes:[cc('ROG'),cc('ROG'),cc('DRU','Resto')],
+    notes:['Whichever rogue gets caught in your Frost Nova / CC first becomes the opener target — don\'t predetermine which rogue.','Druid finishes last once both rogues are down.'],
+    games:[{out:'W', order:[cc('ROG'),cc('DRU')], pace:'standard', note:'Swapped between both rogues, whoever was caught in nova, then finished druid.'}]},
+  { id:'war-lck-dru', classes:[cc('WAR'),cc('LCK'),cc('DRU','Resto')],
+    notes:['Warrior is the immediate pressure threat — top priority.','Take druid 2nd if a window opens; warlock is tanky (soul link) and dies last regardless.'],
+    games:[{out:'W', order:[cc('WAR'),cc('DRU'),cc('LCK')], pace:'standard', note:'Warrior 1st, druid 2nd when open, warlock finished last.'}]},
+  { id:'dpri-rdru-hun', classes:[cc('PRI','Disc'),cc('DRU','Resto'),cc('HUN','MM')],
+    notes:['Hunter kiting/positioning is the swing factor — losing sync on the kite = losing the game.','When the read is right: nuke priest 1st, poly the hunter, kill hunter on the kite, druid finishes.'],
+    games:[
+      {out:'L', order:[], pace:'standard', note:'Tried to kite hunter and go priest-ish, team split, failed to sync — loss.'},
+      {out:'W', order:[cc('PRI'),cc('HUN'),cc('DRU')], pace:'standard', note:'Priest nuked successfully, hunter polied and kited down 2nd, druid finished.'},
+    ]},
+  { id:'rog-mag-rdru', classes:[cc('ROG'),cc('MAG','Frost'),cc('DRU','Resto')],
+    notes:['Same mage-priority logic as RMP — if mage Ice Blocks and commits hard, be ready to misdirect (silence the druid instead) to force the shatter/kill window.','Rogue can be baited to Sheep/CC while you finish the mage.'],
+    games:[
+      {out:'W', order:[cc('MAG'),cc('ROG')], pace:'standard', note:'Slow defensive start, swapped mage/rogue for a window, finished mage then rogue.'},
+      {out:'L', order:[], pace:'standard', note:'Mage iceblocked, rogue popped CDs, survived mostly but own priest died first — bad RNG.'},
+      {out:'W', order:[cc('MAG'),cc('ROG')], pace:'burst', note:'Mage iceblocked hard while silenced — nuked mage 1st by silencing the druid instead, rogue sheeped, finish.'},
+    ]},
+  { id:'rog-lck-dru', classes:[cc('ROG'),cc('LCK'),cc('DRU','Resto')],
+    notes:['Warlock is tanky (soul link) — going for lock first can stall out badly if your own healer gets caught, as happened in the loss below.','When it works, rush lock hard from the opener, rogue 2nd, druid last.'],
+    games:[
+      {out:'L', order:[], pace:'standard', note:'Tried to nuke lock 1st but our own priest (self) died first.'},
+      {out:'W', order:[cc('LCK'),cc('ROG'),cc('DRU')], pace:'burst', note:'Initiated hard on lock 1st, rogue 2nd, druid finished.'},
+    ]},
+  { id:'rog-lck-dpri', classes:[cc('ROG'),cc('LCK'),cc('PRI','Disc')],
+    notes:['Flexible kill target here — both "lock first" and "priest first" have won. Read the opener: if the priest overextends or is out of position, take him first; otherwise default to the lock.'],
+    games:[
+      {out:'W', order:[cc('LCK'),cc('ROG'),cc('PRI')], pace:'burst', note:'Rushed lock first, focused hard, rogue 2nd, finished priest.'},
+      {out:'W', order:[cc('PRI'),cc('LCK'),cc('ROG')], pace:'standard', note:'Went disc priest hard first, lock 2nd, finished rogue.'},
+    ]},
+  { id:'mirror', classes:[cc('MAG','Frost'),cc('PRI','Shadow'),cc('SHM','Resto')],
+    notes:['This is the matchup where protecting your own shaman matters most — the one loss came directly from the enemy focusing and killing our shaman first while we were forced fully defensive.',
+           'Expect to be a priority target yourself (enemy SPriest) — pre-dispel and pre-position instead of reacting.',
+           'Killing the enemy priest first denies their CC chain, similar to killing the enemy mage — either works, pick whichever is more isolated/out of position.'],
+    games:[
+      {out:'L', order:[], pace:'attrition', note:'Enemy focused and killed our shaman first — forced fully defensive, lost the shaman and the game.'},
+      {out:'W', order:[cc('PRI'),cc('MAG')], pace:'standard', note:'Focused enemy priest 1st while healing/surviving; enemies went for our mage instead. Priest died 1st, mage 2nd, finish.'},
+      {out:'W', order:[cc('PRI')], pace:'standard', note:'Nuked enemy priest 1st, kept our mage alive, finished out.'},
+      {out:'W', order:[cc('MAG'),cc('SHM')], pace:'standard', note:'Silenced their poly attempt on our mage, played defensive till another mage opening, hard kicks on their shaman — mage died 1st, shaman 2nd, priest neutralized.'},
+    ]},
+  { id:'dpri-bmhun-rog', classes:[cc('PRI','Disc'),cc('HUN','BM'),cc('ROG')],
+    notes:['Hunter is the priority target here — likely to deny Bestial Wrath burst potential before it matters.','Getting caught off guard is the main loss condition in this matchup — watch for the opener, don\'t get surprised.'],
+    games:[
+      {out:'L', order:[], pace:'standard', note:'Caught off guard, lost.'},
+      {out:'W', order:[cc('HUN'),cc('ROG'),cc('PRI')], pace:'standard', note:'Nuked hunter 1st, rogue 2nd, finish.'},
+      {out:'W', order:[cc('HUN'),cc('ROG')], pace:'standard', note:'Nuked hunter, rogue 2nd, priest hard CC\'d for the rest.'},
+    ]},
+  { id:'fmag-rsh-retpal', classes:[cc('MAG','Frost'),cc('SHM','Resto'),cc('PAL','Ret')],
+    notes:['Mage first, ret paladin second, shaman finishes — standard priority order.'],
+    games:[{out:'W', order:[cc('MAG'),cc('PAL')], pace:'standard', note:'Mage 1st, ret 2nd, finished shaman.'}]},
+  { id:'war-rsh-dpri', classes:[cc('WAR'),cc('SHM','Resto'),cc('PRI','Disc')],
+    notes:['Warrior\'s Mortal Strike halves the enemy shaman\'s healing efficiency once it\'s landing — that\'s your cue to push, not turtle.','Be ready to flip off priest onto warrior mid-fight if the priest read changes — both wins in this matchup involved a swap.'],
+    games:[
+      {out:'W', order:[cc('WAR'),cc('PRI')], pace:'attrition', note:'Slow defensive start, tried priest 1st but read changed and swapped to warrior — warrior died 1st (slowly), priest 2nd, finish.'},
+      {out:'W', order:[cc('PRI'),cc('WAR')], pace:'standard', note:'Shaman applied pressure, swapped and retreated, killed priest 1st on bad positioning + popped CDs, warrior 2nd, finish.'},
+    ]},
+  { id:'war-ret-rsh', classes:[cc('WAR'),cc('PAL','Ret'),cc('SHM','Resto')],
+    notes:['Bait the ret paladin\'s CDs (wings/hoj) before committing — warrior first, shaman 2nd, ret last once his CDs are spent.'],
+    games:[{out:'W', order:[cc('WAR'),cc('SHM')], pace:'standard', note:'Warrior 1st, shaman 2nd after baiting ret\'s CDs, finished ret.'}]},
+  { id:'war-rsh-rdru', classes:[cc('WAR'),cc('SHM','Resto'),cc('DRU','Resto')],
+    notes:['Warrior consistently the 1st kill in this matchup — commit early, shaman 2nd, druid last.','Sheep/silence the off-target (druid) while focusing warrior/shaman down.'],
+    games:[
+      {out:'W', order:[cc('WAR'),cc('SHM')], pace:'standard', note:'Shaman took damage first, then swapped and committed to warrior who died 1st, shaman 2nd, finish druid.'},
+      {out:'W', order:[cc('WAR'),cc('SHM')], pace:'burst', note:'Enemy shaman sheeped, druid silenced, warrior nuked 1st on opening, shaman 2nd, finish druid.'},
+    ]},
+  { id:'war-dpri-rdru', classes:[cc('WAR'),cc('PRI','Disc'),cc('DRU','Resto')],
+    notes:['This one went badly when the priest survived the opener — have a plan B (swap to warrior) ready before you open, not after.'],
+    games:[{out:'L', order:[], pace:'standard', note:'Kited, nuked priest 1st on opening but he survived, swapped to warrior who barely survived, kept silences on druid + LoS\'d priest — bad RNG loss.'}]},
+  { id:'lck-dpri-rdru', classes:[cc('LCK'),cc('PRI','Disc'),cc('DRU','Resto')],
+    notes:['Slow/defensive start works here — wear down the priest\'s CDs and reset until a real opening appears, then commit to priest 1st.','Warlock, being tanky, is the natural last kill.'],
+    games:[{out:'W', order:[cc('PRI'),cc('LCK')], pace:'attrition', note:'Slow defensive start, wore down priest CDs + reset until an opening, nuked priest 1st, some damage to lock, swapped druid on opening, lock finished last.'}]},
+];
+
+// Known TBC 3v3 meta archetypes (class-only, spec-agnostic) — used to recognize comps you haven't logged yet
+const META_ARCHETYPES = [
+  { name:'RMP', classes:['ROG','MAG','PRI'], note:'The defining 3v3 comp on ladder. Their whole game plan is the sap → poly opener — survive that clean and you\'re already ahead. Priest healer almost always finishes last once CC\'d/dispelled down.' },
+  { name:'WLD', classes:['WAR','LCK','DRU'], note:'Known hard-counter to RMP: fear on the healer, Mortal Strike to gut healing, Cyclone to peel. Expect a grindy attrition game rather than a burst race — don\'t force a fast kill, out-sustain them.' },
+  { name:'RLS', classes:['ROG','LCK','SHM'], note:'Spell-lock + fear chain comp with ranged shaman pressure. Denying Spell Lock (kill/CC the felhunter, or bait it early) swings this hard.' },
+  { name:'Drain Team', classes:['LCK','PRI','DRU'], note:'Wins through mana burn/drain on your healer rather than direct burst. Watch your shaman\'s mana bar as the actual win condition here, not just HP totals.' },
+];
+
+// Rough "default kill priority" weight — lower = more likely to be targeted early (squishy / no defensives up by default)
+const PRIORITY_WEIGHT = {
+  MAG:1, LCK:2.5, HUN:2, ROG:2, WAR:2.5, PRI_Shadow:2,
+  SHM_nonresto:2, DRU_nonresto:2, PAL_Ret:2.5,
+  // healers/defensive specs get deprioritized (killed last by default)
+  PRI_heal:5, SHM_Resto:5, DRU_Resto:5, PAL_Holy:5,
+};
+function priorityWeightFor(c){
+  if(c.k==='PRI') return c.spec==='Shadow' ? PRIORITY_WEIGHT.PRI_Shadow : PRIORITY_WEIGHT.PRI_heal;
+  if(c.k==='SHM') return c.spec==='Resto' ? PRIORITY_WEIGHT.SHM_Resto : PRIORITY_WEIGHT.SHM_nonresto;
+  if(c.k==='DRU') return c.spec==='Resto' ? PRIORITY_WEIGHT.DRU_Resto : PRIORITY_WEIGHT.DRU_nonresto;
+  if(c.k==='PAL') return c.spec==='Holy' ? PRIORITY_WEIGHT.PAL_Holy : PRIORITY_WEIGHT.PAL_Ret;
+  return PRIORITY_WEIGHT[c.k] ?? 2.5;
+}
+
+const PRINCIPLES = [
+  '<b>Protect your shaman above all in the early game.</b> Every loss where your resto shaman got trained and isolated early ended in a loss, including the RMP-mirror. Resto Shaman is the most cast-reliant, least mobile healer archetype — treat early shaman safety as a higher priority than your own damage output.',
+  '<b>Default kill priority is "least defensively-toolkitted enemy" — but stay flexible.</b> Mage/Warlock/Hunter with no CDs up is usually first. The moment they pop a defensive (Ice Block, Cloak of Shadows, Divine Shield, Pain Suppression), be ready to flip to the secondary target rather than burning CDs into it.',
+  '<b>Bait before you commit.</b> Several wins came specifically from baiting a defensive CD (rogue Cloak, mage Ice Block) with a soft engage before going all-in — several losses came from committing blind into one.',
+  '<b>Priest healers (Disc) almost always die last</b> in your logs — don\'t waste early CC/dispel priority on them. Deny their Pain Suppression value by continuing pressure through it or swapping to a secondary target during the PS window, then swap back.',
+  '<b>Warrior comps: Mortal Strike is your green light.</b> Once MS is landing on the enemy healer, their healing is halved — that\'s the signal to push, not to play defensively.',
+  '<b>Druid comps: force target switches.</b> Their heals are almost entirely purgeable HoTs (Lifebloom especially) — switching kill targets forces them to re-roll HoTs from scratch and drains their mana fast.',
+  '<b>Getting "caught off guard" is a recurring, avoidable loss condition</b> — several losses (vs BM Hunter/Rogue/Priest, vs Priest/Druid/Hunter) trace to a bad opener/positioning read rather than a mechanical outmatch. Slow down and confirm the opener before committing.',
+];
+
+const CLASS_TIPS = {
+  WAR:['Track Death Wish (immune to fear, +20% dmg) — control him hard while it\'s up.','Intimidating Shout is a physical AoE fear — can\'t be dispelled, plan CC breaks in advance.','Stunning a warrior heals him 10% HP (Second Wind) — don\'t chain-stun mindlessly.','Mortal Strike (90% of his damage value) devastates your shaman\'s healing efficiency.','Track Intercept (15s) and Disarm (60s) with Omnibar/Gladius.'],
+  ROG:['Never let him reset — keep dots/fairy-fire/pressure on him so he can\'t reopen from stealth.','Don\'t trinket the first Sap — Blind almost always follows for a guaranteed 10s CC chain.','Cloak of Shadows = 5s magic immunity + removes dots/poisons — bait it before committing casters.','Evasion only works facing him — go behind or stun to negate it.'],
+  HUN:['Bestial Wrath = 18s CC immunity + huge burst on BM — line of sight him during it if possible.','Scattershot is only 15yd range and breaks on damage — track the cooldown.','Wyvern Sting shares DR with Freezing Trap and leaves a 12s dot that breaks most CC after.','8yd dead zone — closing distance and staying glued to him removes his ranged pressure entirely.'],
+  MAG:['90% of mage kills come from the Water Elemental Freeze + Frostbolt/Ice Lance shatter — stopping this combo is the single biggest tempo swing.','Ice Block removes all CC and grants a 2nd "trinket" — locking him on Frost school (kick/silence) prevents him from using it.','Cold Snap resets all frost CDs — if you see it, expect another burst window immediately.','Counterspell is dispellable off your teammate — remove it instantly to waste his CD.'],
+  LCK:['Soul Link transfers 20% of his damage to the pet — very tanky, plan for a longer kill.','Fel Domination (fast pet resummon) is purgeable/kickable — denying it is huge since his kit leans on the felhunter.','Death Coil can\'t be broken by damage — expect it used to lock in kills on low-HP targets.','Spell Lock (from felhunter) can be reapplied via a fresh pet post-Feldom — very risky play for him if his pet then dies.'],
+  PRI:['Pain Suppression (-40% dmg taken, +65% dispel resist) — don\'t dump CDs into it, swap to a different target instead.','Weakened Soul (13s after PW:Shield) is your window — CC or burst right before it falls off.','Dispel Magic strips Inner Fire (armor) too — an easy free ~10% extra damage on him.','Shadowfiend must be CC\'d or it gives him a large mana return on completion.'],
+  SHM:['No instant heal without a CD besides Earth Shield (purgeable, wipes all charges in one dispel).','Nature\'s Swiftness is dispellable — sets up a free heal/CL burst if you catch it precast.','Bloodlust/Heroism — purge it immediately or your whole team eats a 40s haste buff.','Tremor Totem clears fears every 3s — time your fear to land just after a tick for a full duration.'],
+  PAL:['Blessing of Sacrifice transfers damage to himself — dispel it off the kill target before opening, or your CC gets broken by their own damage.','Hammer of Justice + Repentance combo is how Ret secures kills — track HoJ (45s) closely around your trinket timer.','Blessing of Protection removes physical CC (disarm etc.) — physical effects only, magic CC still works.','Vs Paladin+Shaman: Windfury Totem massively amplifies their burst — always a top kill-priority totem.'],
+  DRU:['Shifting removes all snares/roots instantly — very hard to lock down while mobile.','Nature\'s Swiftness (dispellable) usually precedes a big Healing Touch or an instant Cyclone/Roots.','~95% of healing comes from purgeable HoTs — Lifebloom is only a 7s duration, easy to force off with target switches.','Bash sets up CC chains — call it out immediately so teammates can prep CC breaks.'],
+};
+
+/* ============================ STATE ============================ */
+let matchups = [];
+let selectedMatchupId = null;
+let logSelectedClasses = []; // [{k,spec}]
+let logOrder = []; // array of k (or k+spec key) in kill order
+let logOutcome = null;
+let logPace = null;
+
+const STORE_KEY = 'shatterplay:matchups';
+
+async function loadData(){
+  try{
+    const res = await window.storage.get(STORE_KEY, false);
+    matchups = JSON.parse(res.value);
+  }catch(e){
+    matchups = JSON.parse(JSON.stringify(DEFAULT_MATCHUPS));
+    await persist();
+  }
+  renderMatchupList();
+  renderDashboard();
+}
+
+function renderDashboard(){
+  const el = document.getElementById('dashboard');
+  let totalW=0, totalL=0;
+  const firstKillCounts = {};
+  matchups.forEach(m=> m.games.forEach(g=>{
+    if(g.out==='W') totalW++; else totalL++;
+    if(g.order[0]){ const label = classLabel(g.order[0]); firstKillCounts[label]=(firstKillCounts[label]||0)+1; }
+  }));
+  const total = totalW+totalL;
+  const pct = total? Math.round(totalW/total*100):0;
+  const topFirst = Object.entries(firstKillCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  el.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:${pct>=60?'var(--win)':pct>=40?'var(--warn)':'var(--loss)'};">${pct}%</div>
+        <div class="wr">overall win rate · ${total} logged games</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700;">${matchups.length}</div>
+        <div class="wr">matchups tracked</div>
+      </div>
+    </div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin-bottom:6px;">Most common 1st kill overall</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      ${topFirst.map(([label,count])=>`<span class="pill" style="background:var(--shadow-purple); color:#fff;">${label} · ${count}×</span>`).join('')}
+    </div>
+  `;
+}
+async function persist(){
+  try{ await window.storage.set(STORE_KEY, JSON.stringify(matchups), false); }
+  catch(e){ console.error('storage failed', e); }
+}
+
+/* ============================ TABS ============================ */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============================ MATCHUP LIST ============================ */
+function winRate(m){
+  const w = m.games.filter(g=>g.out==='W').length;
+  const total = m.games.length;
+  return {w, l: total-w, total, pct: total? Math.round(w/total*100):0};
+}
+function renderMatchupList(filter){
+  const list = document.getElementById('matchup-list');
+  const f = (filter||'').toLowerCase().trim();
+  let items = matchups.slice().sort((a,b)=> b.games.length - a.games.length);
+  if(f){
+    items = items.filter(m => m.classes.some(c => CLASS_META[c.k].name.toLowerCase().includes(f) || c.k.toLowerCase().includes(f) || (c.spec||'').toLowerCase().includes(f)));
+  }
+  if(items.length===0){
+    list.innerHTML = `<div class="empty">No matchups match that search.</div>`;
+    return;
+  }
+  list.innerHTML = items.map(m=>{
+    const wr = winRate(m);
+    const pillsHTML = m.classes.map(c=>pillHTML(c)).join('');
+    const color = wr.pct>=60? 'var(--win)' : wr.pct>=40? 'var(--warn)' : 'var(--loss)';
+    return `<div class="mrow" data-id="${m.id}">
+      <div class="pills">${pillsHTML}</div>
+      <div class="stat-block">
+        <div class="wl" style="color:${color}">${wr.w}-${wr.l}</div>
+        <div class="wr">${wr.pct}% · ${wr.total}g</div>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.mrow').forEach(row=>{
+    row.addEventListener('click', ()=> openDetail(row.dataset.id));
+  });
+}
+document.getElementById('search').addEventListener('input', e=> renderMatchupList(e.target.value));
+
+/* ---- detail view ---- */
+function openDetail(id){
+  selectedMatchupId = id;
+  const m = matchups.find(x=>x.id===id);
+  document.getElementById('list-mode').style.display='none';
+  const d = document.getElementById('detail-mode');
+  d.style.display='block';
+
+  const wr = winRate(m);
+  const compHTML = m.classes.map(c=>pillHTML(c)).join(' ');
+
+  // compute most common opening kill (mode of order[0] among wins)
+  const firstKillCounts = {};
+  m.games.forEach(g=>{ if(g.order[0]){ const key=classLabel(g.order[0]); firstKillCounts[key]=(firstKillCounts[key]||0)+1; } });
+  let ladderHTML = '';
+  const sortedFirst = Object.entries(firstKillCounts).sort((a,b)=>b[1]-a[1]);
+  if(sortedFirst.length){
+    ladderHTML = `<div class="priority-ladder">` + sortedFirst.map(([label,count],i)=>{
+      const cls = m.classes.find(c=> classLabel(c)===label);
+      const color = cls? CLASS_META[cls.k].color : 'var(--shadow-purple)';
+      return `<div class="rung"><div class="glow" style="background:${color}"></div>
+        <div class="num" style="background:${color}; color:#0a0813;">${i+1}</div>
+        <div><b>${label}</b></div>
+        <div class="confidence">${count}/${m.games.filter(g=>g.order[0]).length} openers</div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  const gamesHTML = m.games.map(g=>{
+    const orderStr = g.order.length? g.order.map(classLabel).join(' → ') : '—';
+    return `<div class="gentry">
+      <span class="gtag ${g.out}">${g.out}</span>
+      <div>
+        <div class="gorder">${orderStr} <span style="opacity:.6">· ${g.pace}</span></div>
+        <div class="gnote">${g.note}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const notesHTML = m.notes.map(n=>`<li>${n}</li>`).join('');
+
+  d.innerHTML = `
+    <button class="backbtn" id="back-btn">← All matchups</button>
+    <div class="card">
+      <h3>${compHTML}</h3>
+      <div class="wr" style="margin-bottom:6px;">${wr.w}-${wr.l} · ${wr.pct}% win rate over ${wr.total} logged games</div>
+      ${ladderHTML}
+      <h3 style="margin-top:16px;">Coaching Notes</h3>
+      <ul class="notes-list">${notesHTML}</ul>
+      <div class="gamelog">
+        <h3 style="margin-bottom:8px;">Game Log</h3>
+        ${gamesHTML}
+      </div>
+    </div>
+  `;
+  document.getElementById('back-btn').addEventListener('click', ()=>{
+    d.style.display='none';
+    document.getElementById('list-mode').style.display='block';
+  });
+}
+
+/* ============================ LOG GAME TAB ============================ */
+const classGrid = document.getElementById('class-grid');
+Object.entries(CLASS_META).forEach(([k,meta])=>{
+  const btn = document.createElement('button');
+  btn.className='cbtn'; btn.dataset.k=k; btn.textContent=meta.name;
+  btn.addEventListener('click', ()=> toggleClass(k));
+  classGrid.appendChild(btn);
+});
+
+function toggleClass(k){
+  const idx = logSelectedClasses.findIndex(c=>c.k===k);
+  if(idx>-1){
+    logSelectedClasses.splice(idx,1);
+  } else {
+    if(logSelectedClasses.length>=3) return;
+    logSelectedClasses.push({k, spec: CLASS_META[k].specs ? CLASS_META[k].specs[0] : null});
+  }
+  logOrder = [];
+  renderClassGrid();
+  renderSpecPicker();
+  renderOrderCard();
+  updateSaveState();
+}
+function renderClassGrid(){
+  classGrid.querySelectorAll('.cbtn').forEach(btn=>{
+    const k = btn.dataset.k;
+    const sel = logSelectedClasses.find(c=>c.k===k);
+    btn.classList.toggle('selected', !!sel);
+    btn.style.background = sel ? `var(--c-${k.toLowerCase()})` : '';
+    btn.style.color = sel ? '#0a0813' : '';
+  });
+}
+function renderSpecPicker(){
+  const el = document.getElementById('spec-picker');
+  el.innerHTML='';
+  logSelectedClasses.forEach(c=>{
+    const meta = CLASS_META[c.k];
+    if(!meta.specs) return;
+    const row = document.createElement('div');
+    row.className='spec-row';
+    row.innerHTML = `<label class="field-label" style="width:100%; margin-bottom:2px;">${meta.name} spec</label>` +
+      meta.specs.map(s=>`<button type="button" class="spec-chip ${c.spec===s?'on':''}" data-k="${c.k}" data-spec="${s}">${s}</button>`).join('');
+    el.appendChild(row);
+  });
+  el.querySelectorAll('.spec-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const c = logSelectedClasses.find(x=>x.k===chip.dataset.k);
+      c.spec = chip.dataset.spec;
+      renderSpecPicker();
+    });
+  });
+}
+function renderOrderCard(){
+  const card = document.getElementById('order-card');
+  const row = document.getElementById('order-row');
+  if(logSelectedClasses.length!==3){ card.style.display='none'; return; }
+  card.style.display='block';
+  row.innerHTML = logSelectedClasses.map(c=>{
+    const seqIdx = logOrder.findIndex(o=>o.k===c.k && o.spec===c.spec);
+    const meta = CLASS_META[c.k];
+    return `<div class="order-chip" data-k="${c.k}" data-spec="${c.spec||''}" style="border-color:${meta.color}">
+      ${seqIdx>-1?`<span class="seq">${seqIdx+1}</span>`:''}
+      ${classLabel(c)}
+    </div>`;
+  }).join('');
+  row.querySelectorAll('.order-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const k=chip.dataset.k, spec=chip.dataset.spec||null;
+      const existingIdx = logOrder.findIndex(o=>o.k===k && o.spec===spec);
+      if(existingIdx>-1){ logOrder.splice(existingIdx,1); }
+      else if(logOrder.length<3){ logOrder.push({k,spec}); }
+      renderOrderCard();
+    });
+  });
+}
+document.querySelectorAll('.outbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    logOutcome = btn.dataset.out;
+    document.querySelectorAll('.outbtn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    updateSaveState();
+  });
+});
+const PACE_OPTIONS = ['Fast burst','Slow/defensive start','Mid-game swing','Long attrition'];
+const paceRow = document.getElementById('pace-row');
+PACE_OPTIONS.forEach(p=>{
+  const b = document.createElement('button');
+  b.className='pacebtn'; b.type='button'; b.textContent=p;
+  b.addEventListener('click', ()=>{
+    logPace = p;
+    paceRow.querySelectorAll('.pacebtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+  paceRow.appendChild(b);
+});
+
+function updateSaveState(){
+  const ok = logSelectedClasses.length===3 && logOutcome;
+  document.getElementById('save-btn').disabled = !ok;
+}
+
+document.getElementById('save-btn').addEventListener('click', async ()=>{
+  const key = compKey(logSelectedClasses);
+  let m = matchups.find(x=> compKey(x.classes)===key);
+  const newGame = {
+    out: logOutcome,
+    order: logOrder.map(o=>({k:o.k, spec:o.spec})),
+    pace: logPace || 'standard',
+    note: document.getElementById('notes').value.trim() || '(no notes)',
+  };
+  if(m){
+    m.games.push(newGame);
+  } else {
+    m = { id: key.replace(/[^a-z0-9]/gi,'').toLowerCase()+Date.now(), classes: logSelectedClasses.slice(), notes:['New matchup — no coaching notes yet. Add reads here as you learn the matchup.'], games:[newGame] };
+    matchups.push(m);
+  }
+  await persist();
+  showToast('Game logged ✓');
+  // reset form
+  logSelectedClasses=[]; logOrder=[]; logOutcome=null; logPace=null;
+  document.getElementById('notes').value='';
+  document.querySelectorAll('.outbtn').forEach(b=>b.classList.remove('on'));
+  paceRow.querySelectorAll('.pacebtn').forEach(b=>b.classList.remove('on'));
+  renderClassGrid(); renderSpecPicker(); renderOrderCard(); updateSaveState();
+  renderMatchupList();
+  renderDashboard();
+});
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* ============================ PLAN TAB ============================ */
+let planSelectedClasses = [];
+const planGrid = document.getElementById('plan-class-grid');
+Object.entries(CLASS_META).forEach(([k,meta])=>{
+  const btn = document.createElement('button');
+  btn.className='cbtn'; btn.dataset.k=k; btn.textContent=meta.name;
+  btn.addEventListener('click', ()=> togglePlanClass(k));
+  planGrid.appendChild(btn);
+});
+function togglePlanClass(k){
+  const idx = planSelectedClasses.findIndex(c=>c.k===k);
+  if(idx>-1){ planSelectedClasses.splice(idx,1); }
+  else { if(planSelectedClasses.length>=3) return; planSelectedClasses.push({k, spec: CLASS_META[k].specs ? CLASS_META[k].specs[0] : null}); }
+  renderPlanGrid(); renderPlanSpecPicker();
+  document.getElementById('plan-generate-btn').disabled = planSelectedClasses.length!==3;
+}
+function renderPlanGrid(){
+  planGrid.querySelectorAll('.cbtn').forEach(btn=>{
+    const k = btn.dataset.k;
+    const sel = planSelectedClasses.find(c=>c.k===k);
+    btn.classList.toggle('selected', !!sel);
+    btn.style.background = sel ? `var(--c-${k.toLowerCase()})` : '';
+    btn.style.color = sel ? '#0a0813' : '';
+  });
+}
+function renderPlanSpecPicker(){
+  const el = document.getElementById('plan-spec-picker');
+  el.innerHTML='';
+  planSelectedClasses.forEach(c=>{
+    const meta = CLASS_META[c.k];
+    if(!meta.specs) return;
+    const row = document.createElement('div');
+    row.className='spec-row';
+    row.innerHTML = `<label class="field-label" style="width:100%; margin-bottom:2px;">${meta.name} spec</label>` +
+      meta.specs.map(s=>`<button type="button" class="spec-chip ${c.spec===s?'on':''}" data-k="${c.k}" data-spec="${s}">${s}</button>`).join('');
+    el.appendChild(row);
+  });
+  el.querySelectorAll('.spec-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const c = planSelectedClasses.find(x=>x.k===chip.dataset.k);
+      c.spec = chip.dataset.spec;
+      renderPlanSpecPicker();
+    });
+  });
+}
+
+document.getElementById('plan-generate-btn').addEventListener('click', ()=>{
+  const out = document.getElementById('plan-output');
+  const key = compKey(planSelectedClasses);
+  const known = matchups.find(m=> compKey(m.classes)===key);
+
+  if(known){
+    const wr = winRate(known);
+    const firstKillCounts = {};
+    known.games.forEach(g=>{ if(g.order[0]){ const l=classLabel(g.order[0]); firstKillCounts[l]=(firstKillCounts[l]||0)+1; } });
+    const sortedFirst = Object.entries(firstKillCounts).sort((a,b)=>b[1]-a[1]);
+    out.innerHTML = `<div class="card">
+      <h3 style="color:var(--win);">✓ You've logged this comp</h3>
+      <div class="wr" style="margin-bottom:10px;">${wr.w}-${wr.l} · ${wr.pct}% win rate over ${wr.total} games</div>
+      ${sortedFirst.length? `<div class="priority-ladder">${sortedFirst.map(([label,count],i)=>`<div class="rung"><div class="num" style="background:var(--shadow-purple); color:#fff;">${i+1}</div><div><b>${label}</b></div><div class="confidence">${count}× opened this way</div></div>`).join('')}</div>`:''}
+      <h3 style="margin-top:14px;">Coaching Notes</h3>
+      <ul class="notes-list">${known.notes.map(n=>`<li>${n}</li>`).join('')}</ul>
+    </div>`;
+    return;
+  }
+
+  // fallback: generated read
+  const classOnlyKey = planSelectedClasses.map(c=>c.k).slice().sort().join(',');
+  const archetype = META_ARCHETYPES.find(a => a.classes.slice().sort().join(',')===classOnlyKey);
+  const ordered = planSelectedClasses.slice().sort((a,b)=> priorityWeightFor(a)-priorityWeightFor(b));
+  const tipsHTML = planSelectedClasses.map(c=>{
+    const tips = CLASS_TIPS[c.k] || [];
+    return `<div style="margin-bottom:10px;"><b style="color:var(--text);">${classLabel(c)}</b><ul class="notes-list" style="margin-top:4px;">${tips.slice(0,2).map(t=>`<li>${t}</li>`).join('')}</ul></div>`;
+  }).join('');
+
+  out.innerHTML = `<div class="card">
+    <h3 style="color:var(--warn);">⚡ Not in your log yet — generated read</h3>
+    ${archetype? `<div class="small-note" style="text-align:left; margin-bottom:10px; color:var(--text-dim);">This looks like a <b style="color:#fff;">${archetype.name}</b>-style comp. ${archetype.note}</div>` : `<div class="small-note" style="text-align:left; margin-bottom:10px;">No exact meta-archetype match — reasoning from general priority rules below.</div>`}
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin-bottom:8px;">Suggested default kill order</div>
+    <div class="priority-ladder">
+      ${ordered.map((c,i)=>`<div class="rung"><div class="glow" style="background:${CLASS_META[c.k].color}"></div><div class="num" style="background:${CLASS_META[c.k].color}; color:#0a0813;">${i+1}</div><div><b>${classLabel(c)}</b></div></div>`).join('')}
+    </div>
+    <div class="small-note" style="text-align:left; margin:8px 0 14px;">This is a starting assumption, not a rule — flip it the moment a defensive CD gets baited or someone gets isolated. Once you play this comp, log it in the Log tab so next time you get real data instead of a guess.</div>
+    <h3>Quick tips per class</h3>
+    ${tipsHTML}
+  </div>`;
+});
+
+/* ============================ COACHING TAB ============================ */
+document.getElementById('principles-list').innerHTML = PRINCIPLES.map(p=>`<li>${p}</li>`).join('');
+
+const tipsWrap = document.getElementById('class-tips');
+Object.entries(CLASS_TIPS).forEach(([k,tips])=>{
+  const meta = CLASS_META[k];
+  const acc = document.createElement('div');
+  acc.className='accordion';
+  acc.innerHTML = `
+    <div class="acc-head">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="pill" style="background:${meta.color}">${k}</span>
+        <span class="name">${meta.name}</span>
+      </div>
+      <span class="chevron">›</span>
+    </div>
+    <div class="acc-body"><div class="acc-body-inner"><ul class="notes-list">${tips.map(t=>`<li>${t}</li>`).join('')}</ul></div></div>
+  `;
+  tipsWrap.appendChild(acc);
+});
+// delegated handler covers these dynamic accordions AND the static ones written directly in the Guide tab
+document.addEventListener('click', (e)=>{
+  const head = e.target.closest('.acc-head');
+  if(head){ head.closest('.accordion').classList.toggle('open'); }
+});
+
+/* ============================ INIT ============================ */
+loadData();
+</script>
+</body>
+</html>
