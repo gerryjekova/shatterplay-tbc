@@ -205,6 +205,8 @@
     <div class="card">
       <h3>Enemy Comp — pick 3</h3>
       <div class="classgrid" id="class-grid"></div>
+      <div class="small-note" style="text-align:left; margin:2px 0 8px;">Tap a class to add it — tap it again for a 2nd/3rd copy (e.g. two rogues). Remove any one with its ×.</div>
+      <div class="order-row" id="class-chips"></div>
       <div id="spec-picker"></div>
     </div>
 
@@ -235,6 +237,8 @@
       <h3>Who are you queued into?</h3>
       <div class="small-note" style="margin:0 0 10px;">Pick their 3 classes. If you've logged this exact comp, you get your real data. If not, you get a generated read from general principles + known meta patterns.</div>
       <div class="classgrid" id="plan-class-grid"></div>
+      <div class="small-note" style="text-align:left; margin:2px 0 8px;">Tap a class to add it — tap again for a 2nd/3rd copy of the same class.</div>
+      <div class="order-row" id="plan-class-chips"></div>
       <div id="plan-spec-picker"></div>
       <button class="savebtn" id="plan-generate-btn" style="margin-top:6px;" disabled>Generate plan</button>
     </div>
@@ -450,6 +454,7 @@ const META_ARCHETYPES = [
   { name:'WLD', classes:['WAR','LCK','DRU'], note:'Known hard-counter to RMP: fear on the healer, Mortal Strike to gut healing, Cyclone to peel. Expect a grindy attrition game rather than a burst race — don\'t force a fast kill, out-sustain them.' },
   { name:'RLS', classes:['ROG','LCK','SHM'], note:'Spell-lock + fear chain comp with ranged shaman pressure. Denying Spell Lock (kill/CC the felhunter, or bait it early) swings this hard.' },
   { name:'Drain Team', classes:['LCK','PRI','DRU'], note:'Wins through mana burn/drain on your healer rather than direct burst. Watch your shaman\'s mana bar as the actual win condition here, not just HP totals.' },
+  { name:'Shadowplay', classes:['LCK','SHM','PRI'], note:'The mirror-flavored counterpart to your own comp (Warlock/Resto Shaman/Shadow Priest). Kill target is flexible for them just like it is for you — read who\'s isolated rather than defaulting to one target.' },
 ];
 
 // Rough "default kill priority" weight — lower = more likely to be targeted early (squishy / no defensives up by default)
@@ -468,13 +473,14 @@ function priorityWeightFor(c){
 }
 
 const PRINCIPLES = [
-  '<b>Protect your shaman above all in the early game.</b> Every loss where your resto shaman got trained and isolated early ended in a loss, including the RMP-mirror. Resto Shaman is the most cast-reliant, least mobile healer archetype — treat early shaman safety as a higher priority than your own damage output.',
+  '<b>A striking share of your losses are self-inflicted, not out-played.</b> "Our own mage/shaman/priest died first" shows up across RMP, Rogue/Lock/Druid, Rogue/Lock/Priest, Warrior/Priest/Druid, the double-mage game, and the Shadowplay mirror. This is a bigger lever than kill-order optimization — before refining who you kill, tighten peel and positioning for whichever of you three is exposed.',
+  '<b>Protect your shaman above all in the early game.</b> Every loss where your resto shaman got trained and isolated early ended in a loss, including the mirror. Resto Shaman is the most cast-reliant, least mobile healer archetype — treat early shaman safety as a higher priority than your own damage output.',
   '<b>Default kill priority is "least defensively-toolkitted enemy" — but stay flexible.</b> Mage/Warlock/Hunter with no CDs up is usually first. The moment they pop a defensive (Ice Block, Cloak of Shadows, Divine Shield, Pain Suppression), be ready to flip to the secondary target rather than burning CDs into it.',
   '<b>Bait before you commit.</b> Several wins came specifically from baiting a defensive CD (rogue Cloak, mage Ice Block) with a soft engage before going all-in — several losses came from committing blind into one.',
   '<b>Priest healers (Disc) almost always die last</b> in your logs — don\'t waste early CC/dispel priority on them. Deny their Pain Suppression value by continuing pressure through it or swapping to a secondary target during the PS window, then swap back.',
   '<b>Warrior comps: Mortal Strike is your green light.</b> Once MS is landing on the enemy healer, their healing is halved — that\'s the signal to push, not to play defensively.',
   '<b>Druid comps: force target switches.</b> Their heals are almost entirely purgeable HoTs (Lifebloom especially) — switching kill targets forces them to re-roll HoTs from scratch and drains their mana fast.',
-  '<b>Getting "caught off guard" is a recurring, avoidable loss condition</b> — several losses (vs BM Hunter/Rogue/Priest, vs Priest/Druid/Hunter) trace to a bad opener/positioning read rather than a mechanical outmatch. Slow down and confirm the opener before committing.',
+  '<b>Getting "caught off guard" is a recurring, avoidable loss condition</b> — several losses trace to a bad opener/positioning read rather than a mechanical outmatch. Slow down and confirm the opener before committing.',
 ];
 
 const CLASS_TIPS = {
@@ -498,6 +504,105 @@ let logOutcome = null;
 let logPace = null;
 
 const STORE_KEY = 'shatterplay:matchups';
+const VERSION_KEY = 'shatterplay:dataVersion';
+const CURRENT_DATA_VERSION = 3;
+
+function migrateToV2(m){
+  const appendGames = (id, games)=>{ const mu = m.find(x=>x.id===id); if(mu) mu.games.push(...games); };
+  const setNotes = (id, notes)=>{ const mu = m.find(x=>x.id===id); if(mu) mu.notes = notes; };
+  const addNew = (obj)=>{ if(!m.find(x=>x.id===obj.id)) m.push(obj); };
+
+  appendGames('war-lck-dru', [
+    {out:'W', order:[cc('WAR'),cc('DRU'),cc('LCK')], pace:'standard', note:'Warrior died 1st, swapped druid 2nd, finished lock.'},
+    {out:'W', order:[cc('WAR'),cc('LCK'),cc('DRU')], pace:'standard', note:'Nuked warrior 1st, lock 2nd, druid finished.'},
+  ]);
+  appendGames('war-dpri-rdru', [
+    {out:'W', order:[cc('WAR')], pace:'standard', note:'Switched war/druid pressure to set up a nuke window — killed warrior while druid silenced and priest CC\'d/LoS\'d, finished.'},
+    {out:'L', order:[], pace:'standard', note:'Pressured druid on opening, survived and reset, tried to nuke warrior but our own mage died 1st — loss.'},
+    {out:'W', order:[cc('WAR')], pace:'standard', note:'Survived until a warrior window, nuked him, finished.'},
+  ]);
+  appendGames('rog-lck-dru', [
+    {out:'L', order:[], pace:'standard', note:'Tried to nuke lock but our own priest (self) died 1st — loss.'},
+    {out:'W', order:[cc('LCK'),cc('DRU')], pace:'standard', note:'Survived, nuked lock 1st on a window, druid 2nd, finished.'},
+  ]);
+  appendGames('mirror', [
+    {out:'W', order:[cc('SHM'),cc('MAG')], pace:'standard', note:'Both teams tried to nuke the enemy shaman — survived until our window, killed their shaman 1st, mage 2nd, finished.'},
+  ]);
+  appendGames('rmp', [
+    {out:'L', order:[cc('MAG'),cc('ROG')], pace:'standard', note:'Switched between mage/rogue for a window, nuked mage on a good window, rogue 2nd — but our own shaman died too fast and we went OOM. Loss.'},
+    {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Mage 1st, rogue 2nd, finish.'},
+    {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Mage 1st, rogue 2nd, finish.'},
+    {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Set up mage for the nuke, then rogue, finish.'},
+    {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Clean mage > rogue > priest.'},
+    {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Clean mage > rogue > priest.'},
+    {out:'W', order:[cc('MAG'),cc('ROG'),cc('PRI')], pace:'standard', note:'Traded the mage kill for our own priest, but still closed it out on the rogue window.'},
+  ]);
+  appendGames('rog-lck-dpri', [
+    {out:'W', order:[cc('ROG'),cc('LCK'),cc('PRI')], pace:'standard', note:'Played defensive while pressuring the rogue, nuked him 1st on a kill window, lock 2nd, finish.'},
+    {out:'W', order:[cc('LCK'),cc('ROG'),cc('PRI')], pace:'standard', note:'Nuked lock 1st, rogue 2nd, finish.'},
+    {out:'L', order:[], pace:'standard', note:'Tried to nuke the lock ASAP but couldn\'t close it in time — our own mage died 1st. Bad RNG loss.'},
+    {out:'W', order:[cc('LCK'),cc('ROG'),cc('PRI')], pace:'standard', note:'Set the lock up for a nuke, killed him 1st, rogue 2nd, finish.'},
+    {out:'W', order:[cc('LCK'),cc('ROG'),cc('PRI')], pace:'standard', note:'Nuked lock 1st, rogue 2nd, finish.'},
+  ]);
+  setNotes('rog-lck-dpri', [
+    'Strong pattern now (6/7 logged wins): lock first is the default plan, not just an option — flip to priest-first only if he badly overextends.',
+    'Rogue is consistently the 2nd kill; their disc priest finishes last once dispelled/CC\'d down.',
+    'Warlock is tanky (soul link) so this can take longer to close than it looks — don\'t panic if the lock isn\'t dying fast, keep the pressure on.',
+  ]);
+
+  addNew({ id:'spri-rog-rdru', classes:[cc('PRI','Shadow'),cc('ROG'),cc('DRU','Resto')],
+    notes:['Their Shadow Priest is the priority target — take him on the first real window.','Hard CC and shut the druid down rather than trying to kill him early; he\'s there to peel, not to trade.'],
+    games:[
+      {out:'W', order:[cc('PRI'),cc('ROG')], pace:'standard', note:'Nuked their priest 1st window, kept druid hard CC\'d and disabled throughout, rogue 2nd, finish.'},
+      {out:'W', order:[cc('PRI'),cc('ROG')], pace:'standard', note:'Same read — priest 1st window, druid locked down, rogue 2nd, finish.'},
+    ]});
+  addNew({ id:'lck-rsh-spri-shadowplay', classes:[cc('LCK'),cc('SHM','Resto'),cc('PRI','Shadow')],
+    notes:['This is "Shadowplay" (Warlock/Resto Shaman/Shadow Priest) — the mirror-flavored counterpart to your own comp.','Their kill target isn\'t fixed either — you\'ve won going priest-first and shaman-first. Read who\'s more isolated.','The one loss here came from our own mage dying first — same lesson as everywhere else: protect the squishiest teammate, don\'t just chase their kill target.'],
+    games:[
+      {out:'W', order:[cc('PRI'),cc('SHM'),cc('LCK')], pace:'standard', note:'Survived, nuked their priest 1st, split shaman/lock, shaman died 2nd, lock finished.'},
+      {out:'L', order:[], pace:'standard', note:'Played defensive/survive, but our own mage died 1st — loss.'},
+      {out:'W', order:[cc('SHM'),cc('PRI'),cc('LCK')], pace:'burst', note:'Opened all-in on their shaman — died 1st and fast, priest 2nd, lock finished.'},
+    ]});
+  addNew({ id:'2mag-dpri', classes:[cc('MAG','Frost'),cc('MAG','Frost'),cc('PRI','Disc')],
+    notes:['Only one data point so far — a double-mage comp puts huge pressure on landing your own kill fast since they have double shatter potential. Needs more games before a real read forms.'],
+    games:[{out:'L', order:[], pace:'standard', note:'Tried to get a mage down but our own mage died 1st — loss.'}]});
+  addNew({ id:'enhsh-rog-rdru', classes:[cc('SHM','Enh'),cc('ROG'),cc('DRU','Resto')],
+    notes:['Enhancement Shaman is the priority kill here — melee/burst threat with no real defensives to bait.','Druid gets hard CC\'d and shut down rather than pursued as a kill target.'],
+    games:[{out:'W', order:[cc('SHM'),cc('ROG')], pace:'standard', note:'Nuked shaman 1st, rogue 2nd, druid hard CC\'d and shut down.'}]});
+  addNew({ id:'elesh-hpal-war', classes:[cc('SHM','Ele'),cc('PAL','Holy'),cc('WAR')],
+    notes:['Holy Paladin dies first here — likely because their team can\'t sustain the healer through a focused early window without the Ele Shaman/Warrior having a way to peel.'],
+    games:[{out:'W', order:[cc('PAL'),cc('WAR'),cc('SHM')], pace:'standard', note:'Holy Paladin 1st, warrior 2nd, shaman finished.'}]});
+  addNew({ id:'hun-war-rsh', classes:[cc('HUN','MM'),cc('WAR'),cc('SHM','Resto')],
+    notes:['Hunter is the consistent 1st kill in both logged games — denies their ranged pressure/CC before it matters.','2nd target flexes between shaman and warrior depending on the read.'],
+    games:[
+      {out:'W', order:[cc('HUN'),cc('WAR'),cc('SHM')], pace:'standard', note:'Hunter 1st, warrior 2nd, shaman finished.'},
+      {out:'W', order:[cc('HUN'),cc('SHM'),cc('WAR')], pace:'standard', note:'Hunter 1st, shaman 2nd, warrior finished.'},
+    ]});
+  addNew({ id:'ret-dpri-rog', classes:[cc('PAL','Ret'),cc('PRI','Disc'),cc('ROG')],
+    notes:['Ret Paladin is the priority target — nuke him first while perma-CC\'ing their priest to deny heals during the kill.','Rogue is finished last once their healer is neutralized and their burst threat (ret) is down.'],
+    games:[{out:'W', order:[cc('PAL'),cc('ROG')], pace:'standard', note:'Nuked ret 1st while perma-CC\'ing their priest, rogue 2nd, finish.'}]});
+}
+
+function migrateToV3(m){
+  const addNew = (obj)=>{ if(!m.find(x=>x.id===obj.id)) m.push(obj); };
+  addNew({ id:'lck-rsh-rdru', classes:[cc('LCK'),cc('SHM','Resto'),cc('DRU','Resto')],
+    notes:['Only one data point so far — their shaman is the priority target, but expect it to take two windows to land, not one.','Lock is next once you\'re back on offense; druid is the natural last kill given the tanky-front-line-free comp on their side (no warrior to force you defensive).'],
+    games:[{out:'W', order:[cc('SHM'),cc('LCK')], pace:'attrition', note:'Played defensive/survive, almost got the shaman on the 1st window, landed it on the 2nd (shaman died 1st). Stayed defensive again until the lock died next, finished.'}]});
+}
+
+async function runMigrations(m){
+  let version = 1;
+  try{
+    const res = await window.storage.get(VERSION_KEY, false);
+    version = parseInt(res.value) || 1;
+  }catch(e){ version = 1; }
+  if(version < 2){ migrateToV2(m); }
+  if(version < 3){ migrateToV3(m); }
+  if(version < CURRENT_DATA_VERSION){
+    try{ await window.storage.set(VERSION_KEY, String(CURRENT_DATA_VERSION), false); }catch(e){}
+  }
+  return m;
+}
 
 async function loadData(){
   try{
@@ -505,8 +610,9 @@ async function loadData(){
     matchups = JSON.parse(res.value);
   }catch(e){
     matchups = JSON.parse(JSON.stringify(DEFAULT_MATCHUPS));
-    await persist();
   }
+  await runMigrations(matchups);
+  await persist();
   renderMatchupList();
   renderDashboard();
 }
@@ -650,77 +756,97 @@ function openDetail(id){
   });
 }
 
-/* ============================ LOG GAME TAB ============================ */
-const classGrid = document.getElementById('class-grid');
-Object.entries(CLASS_META).forEach(([k,meta])=>{
-  const btn = document.createElement('button');
-  btn.className='cbtn'; btn.dataset.k=k; btn.textContent=meta.name;
-  btn.addEventListener('click', ()=> toggleClass(k));
-  classGrid.appendChild(btn);
-});
+/* ============================ SHARED COMP PICKER (supports duplicate classes) ============================ */
+let pickerUid = 0;
+function createCompPicker(gridEl, chipsEl, specEl, onChange){
+  let selected = []; // {id,k,spec}
 
-function toggleClass(k){
-  const idx = logSelectedClasses.findIndex(c=>c.k===k);
-  if(idx>-1){
-    logSelectedClasses.splice(idx,1);
-  } else {
-    if(logSelectedClasses.length>=3) return;
-    logSelectedClasses.push({k, spec: CLASS_META[k].specs ? CLASS_META[k].specs[0] : null});
+  Object.entries(CLASS_META).forEach(([k,meta])=>{
+    const btn = document.createElement('button');
+    btn.className='cbtn'; btn.dataset.k=k; btn.textContent=meta.name;
+    btn.addEventListener('click', ()=> add(k));
+    gridEl.appendChild(btn);
+  });
+
+  function add(k){
+    if(selected.length>=3) return;
+    selected.push({id:'p'+(pickerUid++), k, spec: CLASS_META[k].specs ? CLASS_META[k].specs[0] : null});
+    render();
   }
-  logOrder = [];
-  renderClassGrid();
-  renderSpecPicker();
-  renderOrderCard();
-  updateSaveState();
-}
-function renderClassGrid(){
-  classGrid.querySelectorAll('.cbtn').forEach(btn=>{
-    const k = btn.dataset.k;
-    const sel = logSelectedClasses.find(c=>c.k===k);
-    btn.classList.toggle('selected', !!sel);
-    btn.style.background = sel ? `var(--c-${k.toLowerCase()})` : '';
-    btn.style.color = sel ? '#0a0813' : '';
-  });
-}
-function renderSpecPicker(){
-  const el = document.getElementById('spec-picker');
-  el.innerHTML='';
-  logSelectedClasses.forEach(c=>{
-    const meta = CLASS_META[c.k];
-    if(!meta.specs) return;
-    const row = document.createElement('div');
-    row.className='spec-row';
-    row.innerHTML = `<label class="field-label" style="width:100%; margin-bottom:2px;">${meta.name} spec</label>` +
-      meta.specs.map(s=>`<button type="button" class="spec-chip ${c.spec===s?'on':''}" data-k="${c.k}" data-spec="${s}">${s}</button>`).join('');
-    el.appendChild(row);
-  });
-  el.querySelectorAll('.spec-chip').forEach(chip=>{
-    chip.addEventListener('click', ()=>{
-      const c = logSelectedClasses.find(x=>x.k===chip.dataset.k);
-      c.spec = chip.dataset.spec;
-      renderSpecPicker();
+  function remove(id){ selected = selected.filter(s=>s.id!==id); render(); }
+  function setSpec(id, spec){ const s=selected.find(x=>x.id===id); if(s) s.spec=spec; render(); }
+
+  function render(){
+    // grid buttons — show count badge, disable adding once 3 total are selected
+    gridEl.querySelectorAll('.cbtn').forEach(btn=>{
+      const k = btn.dataset.k;
+      const count = selected.filter(s=>s.k===k).length;
+      const meta = CLASS_META[k];
+      btn.textContent = meta.name + (count? ` ×${count}` : '');
+      btn.classList.toggle('selected', count>0);
+      btn.style.background = count>0 ? `var(--c-${k.toLowerCase()})` : '';
+      btn.style.color = count>0 ? '#0a0813' : '';
+      btn.disabled = selected.length>=3;
+      btn.style.opacity = (selected.length>=3) ? '.45' : '1';
     });
-  });
+    // selected chips, individually removable
+    chipsEl.innerHTML = selected.map(s=>{
+      const meta = CLASS_META[s.k];
+      return `<div class="order-chip" data-id="${s.id}" style="border-color:${meta.color}; cursor:default;">
+        ${classLabel(s)}
+        <span data-remove="${s.id}" style="margin-left:9px; color:var(--loss); font-weight:900; cursor:pointer;">×</span>
+      </div>`;
+    }).join('') || `<div class="small-note" style="text-align:left;">No classes selected yet.</div>`;
+    chipsEl.querySelectorAll('[data-remove]').forEach(x=>{
+      x.addEventListener('click', (e)=>{ e.stopPropagation(); remove(x.dataset.remove); });
+    });
+    // per-instance spec pickers (labelled #1/#2 if duplicated)
+    specEl.innerHTML = selected.map(s=>{
+      const meta = CLASS_META[s.k];
+      if(!meta.specs) return '';
+      const dupes = selected.filter(x=>x.k===s.k);
+      const suffix = dupes.length>1 ? ` (#${dupes.indexOf(s)+1})` : '';
+      return `<div class="spec-row"><label class="field-label" style="width:100%; margin-bottom:2px;">${meta.name}${suffix} spec</label>` +
+        meta.specs.map(sp=>`<button type="button" class="spec-chip ${s.spec===sp?'on':''}" data-id="${s.id}" data-spec="${sp}">${sp}</button>`).join('') +
+        `</div>`;
+    }).join('');
+    specEl.querySelectorAll('.spec-chip').forEach(chip=>{
+      chip.addEventListener('click', ()=> setSpec(chip.dataset.id, chip.dataset.spec));
+    });
+    onChange(selected);
+  }
+
+  render();
+  return { getSelected: ()=>selected, reset: ()=>{ selected=[]; render(); } };
 }
+
+/* ============================ LOG GAME TAB ============================ */
+const logPicker = createCompPicker(
+  document.getElementById('class-grid'),
+  document.getElementById('class-chips'),
+  document.getElementById('spec-picker'),
+  (selected)=>{ logSelectedClasses = selected; logOrder = []; renderOrderCard(); updateSaveState(); }
+);
+
 function renderOrderCard(){
   const card = document.getElementById('order-card');
   const row = document.getElementById('order-row');
   if(logSelectedClasses.length!==3){ card.style.display='none'; return; }
   card.style.display='block';
   row.innerHTML = logSelectedClasses.map(c=>{
-    const seqIdx = logOrder.findIndex(o=>o.k===c.k && o.spec===c.spec);
+    const seqIdx = logOrder.findIndex(o=>o===c.id);
     const meta = CLASS_META[c.k];
-    return `<div class="order-chip" data-k="${c.k}" data-spec="${c.spec||''}" style="border-color:${meta.color}">
+    return `<div class="order-chip" data-id="${c.id}" style="border-color:${meta.color}">
       ${seqIdx>-1?`<span class="seq">${seqIdx+1}</span>`:''}
       ${classLabel(c)}
     </div>`;
   }).join('');
   row.querySelectorAll('.order-chip').forEach(chip=>{
     chip.addEventListener('click', ()=>{
-      const k=chip.dataset.k, spec=chip.dataset.spec||null;
-      const existingIdx = logOrder.findIndex(o=>o.k===k && o.spec===spec);
+      const id = chip.dataset.id;
+      const existingIdx = logOrder.indexOf(id);
       if(existingIdx>-1){ logOrder.splice(existingIdx,1); }
-      else if(logOrder.length<3){ logOrder.push({k,spec}); }
+      else if(logOrder.length<3){ logOrder.push(id); }
       renderOrderCard();
     });
   });
@@ -756,24 +882,25 @@ document.getElementById('save-btn').addEventListener('click', async ()=>{
   let m = matchups.find(x=> compKey(x.classes)===key);
   const newGame = {
     out: logOutcome,
-    order: logOrder.map(o=>({k:o.k, spec:o.spec})),
+    order: logOrder.map(id=>{ const c = logSelectedClasses.find(x=>x.id===id); return {k:c.k, spec:c.spec}; }),
     pace: logPace || 'standard',
     note: document.getElementById('notes').value.trim() || '(no notes)',
   };
   if(m){
     m.games.push(newGame);
   } else {
-    m = { id: key.replace(/[^a-z0-9]/gi,'').toLowerCase()+Date.now(), classes: logSelectedClasses.slice(), notes:['New matchup — no coaching notes yet. Add reads here as you learn the matchup.'], games:[newGame] };
+    m = { id: key.replace(/[^a-z0-9]/gi,'').toLowerCase()+Date.now(), classes: logSelectedClasses.map(c=>({k:c.k,spec:c.spec})), notes:['New matchup — no coaching notes yet. Add reads here as you learn the matchup.'], games:[newGame] };
     matchups.push(m);
   }
   await persist();
   showToast('Game logged ✓');
   // reset form
-  logSelectedClasses=[]; logOrder=[]; logOutcome=null; logPace=null;
+  logOrder=[]; logOutcome=null; logPace=null;
   document.getElementById('notes').value='';
   document.querySelectorAll('.outbtn').forEach(b=>b.classList.remove('on'));
   paceRow.querySelectorAll('.pacebtn').forEach(b=>b.classList.remove('on'));
-  renderClassGrid(); renderSpecPicker(); renderOrderCard(); updateSaveState();
+  logPicker.reset();
+  renderOrderCard(); updateSaveState();
   renderMatchupList();
   renderDashboard();
 });
@@ -787,49 +914,12 @@ function showToast(msg){
 
 /* ============================ PLAN TAB ============================ */
 let planSelectedClasses = [];
-const planGrid = document.getElementById('plan-class-grid');
-Object.entries(CLASS_META).forEach(([k,meta])=>{
-  const btn = document.createElement('button');
-  btn.className='cbtn'; btn.dataset.k=k; btn.textContent=meta.name;
-  btn.addEventListener('click', ()=> togglePlanClass(k));
-  planGrid.appendChild(btn);
-});
-function togglePlanClass(k){
-  const idx = planSelectedClasses.findIndex(c=>c.k===k);
-  if(idx>-1){ planSelectedClasses.splice(idx,1); }
-  else { if(planSelectedClasses.length>=3) return; planSelectedClasses.push({k, spec: CLASS_META[k].specs ? CLASS_META[k].specs[0] : null}); }
-  renderPlanGrid(); renderPlanSpecPicker();
-  document.getElementById('plan-generate-btn').disabled = planSelectedClasses.length!==3;
-}
-function renderPlanGrid(){
-  planGrid.querySelectorAll('.cbtn').forEach(btn=>{
-    const k = btn.dataset.k;
-    const sel = planSelectedClasses.find(c=>c.k===k);
-    btn.classList.toggle('selected', !!sel);
-    btn.style.background = sel ? `var(--c-${k.toLowerCase()})` : '';
-    btn.style.color = sel ? '#0a0813' : '';
-  });
-}
-function renderPlanSpecPicker(){
-  const el = document.getElementById('plan-spec-picker');
-  el.innerHTML='';
-  planSelectedClasses.forEach(c=>{
-    const meta = CLASS_META[c.k];
-    if(!meta.specs) return;
-    const row = document.createElement('div');
-    row.className='spec-row';
-    row.innerHTML = `<label class="field-label" style="width:100%; margin-bottom:2px;">${meta.name} spec</label>` +
-      meta.specs.map(s=>`<button type="button" class="spec-chip ${c.spec===s?'on':''}" data-k="${c.k}" data-spec="${s}">${s}</button>`).join('');
-    el.appendChild(row);
-  });
-  el.querySelectorAll('.spec-chip').forEach(chip=>{
-    chip.addEventListener('click', ()=>{
-      const c = planSelectedClasses.find(x=>x.k===chip.dataset.k);
-      c.spec = chip.dataset.spec;
-      renderPlanSpecPicker();
-    });
-  });
-}
+const planPicker = createCompPicker(
+  document.getElementById('plan-class-grid'),
+  document.getElementById('plan-class-chips'),
+  document.getElementById('plan-spec-picker'),
+  (selected)=>{ planSelectedClasses = selected; document.getElementById('plan-generate-btn').disabled = selected.length!==3; }
+);
 
 document.getElementById('plan-generate-btn').addEventListener('click', ()=>{
   const out = document.getElementById('plan-output');
